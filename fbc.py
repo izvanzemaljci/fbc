@@ -17,7 +17,8 @@ def create_pipe():
 def move_pipes(pipes):
     for pipe in pipes:
         pipe.centerx -= 5
-    return pipes
+    visible_pipes = [pipe for pipe in pipes if pipe.right > -30]
+    return visible_pipes
 
 def draw_pipes(pipes):
     for pipe in pipes:
@@ -28,11 +29,15 @@ def draw_pipes(pipes):
             screen.blit(flip_pipe, pipe)
 
 def check_collision(pipes):
+    global can_score
     for pipe in pipes:
         if bird_rect.colliderect(pipe):
+            death_sound.play()
+            can_score = True
             return False
 
-    if bird_rect.top <= 50 or bird_rect.bottom >= 450:
+    if bird_rect.top <= 10 or bird_rect.bottom >= 450:
+        can_score = True
         return False
 
     return True
@@ -65,17 +70,30 @@ def update_score(score, high_score):
         high_score = score
     return high_score
 
+def pipe_score_check():
+    global score, can_score
+    if pipe_list:
+        for pipe in pipe_list:
+            if 45 < pipe.centerx < 55 and can_score:
+                score += 1
+                score_sound.play()
+                can_score = False
+            if pipe.centerx < 0:
+                can_score = True
+
 pygame.init()
 screen = pygame.display.set_mode((288,512))
 clock = pygame.time.Clock()
 game_font = pygame.font.Font('04B_19.ttf',20)
 
 #Game Variables
+fps = 60
 gravity = 0.35
 bird_movement = 0
 game_active = True
 score = 0
 high_score = 0
+can_score = True
 
 bg_surface = pygame.image.load('assets/background-day.png').convert()
 floor_surface = pygame.image.load('assets/base.png').convert()
@@ -100,6 +118,11 @@ pipe_height = [200,300,400]
 game_over_surface = pygame.image.load('assets/message.png').convert_alpha()
 game_over_rect = game_over_surface.get_rect(center = (144,256))
 
+flap_sound = pygame.mixer.Sound('sounds/sfx_wing.wav')
+death_sound = pygame.mixer.Sound('sounds/sfx_hit.wav')
+score_sound = pygame.mixer.Sound('sounds/sfx_point.wav')
+score_sound_countdown = 100
+
 while True:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -109,6 +132,7 @@ while True:
             if event.key == pygame.K_SPACE and game_active:
                 bird_movement = 0
                 bird_movement -= 8
+                flap_sound.play()
             if event.key == pygame.K_SPACE and game_active == False:
                 game_active = True
                 pipe_list.clear()
@@ -138,8 +162,10 @@ while True:
         pipe_list = move_pipes(pipe_list)
         draw_pipes(pipe_list)
 
-        score += 0.01
+        #Score
+        pipe_score_check()
         score_display('main_game')
+
     else:
         screen.blit(game_over_surface,game_over_rect)
         high_score = update_score(score, high_score)
@@ -153,4 +179,4 @@ while True:
         floor_x_pos = 0
 
     pygame.display.update()
-    clock.tick(60) #fps
+    clock.tick(fps)
